@@ -45,7 +45,7 @@ def http_error(status):
 
 def call_gemini(prompt, json_mode=False):
     """Gemini generateContent 호출(POST). 응답 텍스트를 반환한다."""
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
     body = {"contents": [{"parts": [{"text": prompt}]}]}
     if json_mode:
         body["generationConfig"] = {"responseMimeType": "application/json"}
@@ -57,7 +57,11 @@ def call_gemini(prompt, json_mode=False):
     except requests.RequestException as e:
         raise ApiError("NETWORK_ERROR", type(e).__name__)
     if r.status_code != 200:
-        raise ApiError(http_error(r.status_code), f"HTTP {r.status_code}")
+        try:
+            detail = r.json().get("error", {}).get("message", "")[:200]
+        except ValueError:
+            detail = ""
+        raise ApiError(http_error(r.status_code), f"HTTP {r.status_code} model={model} {detail}".strip())
     try:
         return r.json()["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError, ValueError):
